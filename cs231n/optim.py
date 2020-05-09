@@ -66,7 +66,10 @@ def sgd_momentum(w, dw, config=None):
     # the next_w variable. You should also use and update the velocity v.     #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    v = config['momentum'] * v + dw
+    #print('next v:', v)
+    next_w = w - config['learning_rate'] * v
+    #print('next_w', next_w)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -104,7 +107,8 @@ def rmsprop(w, dw, config=None):
     # config['cache'].                                                        #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    config['cache'] = config['decay_rate'] * config['cache'] + (1 - config['decay_rate']) * dw ** 2
+    next_w = w - config['learning_rate'] * dw / (np.sqrt(config['cache']) + config['epsilon'])
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -148,7 +152,29 @@ def adam(w, dw, config=None):
     # using it in any calculations.                                           #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    # reading parameters
+    t = config['t']
+    beta1 = config['beta1']
+    beta2 = config['beta2']
+    lr = config['learning_rate']
+    ep = config['epsilon']
+    first_moment = config['m']
+    second_moment = config['v']
+    
+    # calculating the next_w
+    t += 1
+    first_moment = beta1 * first_moment + (1 - beta1) * dw
+    second_moment = beta2 * second_moment + (1 - beta2) * dw ** 2
+    first_moment_unbias = first_moment / (1 - beta1 ** t)
+    second_moment_unbias = second_moment / (1 - beta2 ** t)
+    next_w = w - lr * first_moment_unbias / (np.sqrt(second_moment_unbias) + ep)
 
+    # updating the config parameters
+    config['t'] = t
+    config['m'] = first_moment
+    config['v'] = second_moment
+    
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****

@@ -26,7 +26,9 @@ def affine_forward(x, w, b):
     # will need to reshape the input into rows.                               #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x_reshaped = np.reshape(x, (x.shape[0], -1))
 
+    out = x_reshaped.dot(w) + b
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -59,7 +61,12 @@ def affine_backward(dout, cache):
     # TODO: Implement the affine backward pass.                               #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    x_reshaped = np.reshape(x, (x.shape[0], -1))
+    
+    db = np.sum(dout, axis=0)
+    dw = x_reshaped.T.dot(dout)
+    dx = dout.dot(w.T).reshape(x.shape)
+    
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -85,7 +92,7 @@ def relu_forward(x):
     # TODO: Implement the ReLU forward pass.                                  #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    out = np.maximum(0, x)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -112,7 +119,7 @@ def relu_backward(dout, cache):
     # TODO: Implement the ReLU backward pass.                                 #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    dx = dout * (x >= 0)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -192,7 +199,25 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # might prove to be helpful.                                          #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        
+        # computing sample statistics
+        sample_mean = np.mean(x, axis=0)
+        sample_variance = np.var(x, axis=0)
+        # normalizing sample
+        sample_zero_centered = (x - sample_mean)
+        sqrt_variance_plus_epsilon = np.sqrt(sample_variance + eps)
+        normalized_sample = sample_zero_centered / sqrt_variance_plus_epsilon
+        # shifting and scaling the normalized sample
+        out = gamma * normalized_sample + beta
+        # updating the running averages
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_variance
+        # updating values in 
+        bn_param['running_mean'] = running_mean
+        bn_param['running_var'] = running_var
 
+        # values needed in the backward pass
+        cache = (normalized_sample, sample_zero_centered, gamma, sqrt_variance_plus_epsilon)
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -207,7 +232,11 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Store the result in the out variable.                               #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+        
+        # normalizing the sample with the running statistics
+        normalized_sample = (x - running_mean) / np.sqrt(running_var + eps)
+        # shifting and scaling the nomalized sample
+        out = gamma * normalized_sample + beta
         pass
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -250,6 +279,35 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+    normalized_sample, sample_zero_centered, gamma, sqrt_variance_plus_epsilon = cache
+    
+    # calculating the gamma and beta derivatives
+    dgamma = np.sum(dout * normalized_sample, axis=0)
+    dbeta = np.sum(dout, axis=0)
+
+    #print('normalized_sample.shape:', normalized_sample.shape)
+    # calculating values for dx -> see my proof how I got this values
+    A = dout * gamma
+    #print('A.shape:', A.shape)
+    E1 = A / sqrt_variance_plus_epsilon
+    #print('E1.shape:', E1.shape)
+    C = - np.sum(A, axis=0) / sqrt_variance_plus_epsilon
+    #print('C.shape:', C.shape)
+    F = - 0.5 * np.sum(A * sample_zero_centered, axis=0) / sqrt_variance_plus_epsilon ** 3
+    #print('F.shape:', F.shape)
+    N, d = normalized_sample.shape 
+    E2 = C / N
+    #print('E2.shape:', E2.shape)
+    E3 = sample_zero_centered * F * (2 / N)
+    #print('E3.shape:', E3.shape)
+    O = (-2 / N) * F * np.sum(sample_zero_centered, axis=0)
+    #print('O.shape:', O.shape)
+    E4 = O / N
+    #print('E4.shape:', E4.shape)
+
+    # calculating dx
+    dx = E1 + E2 + E3 + E4
+
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -284,7 +342,38 @@ def batchnorm_backward_alt(dout, cache):
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    normalized_sample, sample_zero_centered, gamma, sqrt_variance_plus_epsilon = cache
+    
+    # calculating the gamma and beta derivatives
+    dgamma = np.sum(dout * normalized_sample, axis=0)
+    dbeta = np.sum(dout, axis=0)
 
+    # trying to simplyfy the backpropagation
+    # calculating values for dx -> see my proof how I got this values
+    A = dout * gamma
+    #print('A.shape:', A.shape)
+    # E1 = A / sqrt_variance_plus_epsilon
+    #print('E1.shape:', E1.shape)
+    # C = - np.sum(A / sqrt_variance_plus_epsilon, axis=0)
+    #print('C.shape:', C.shape)
+    F = - np.sum(A * sample_zero_centered, axis=0) / sqrt_variance_plus_epsilon ** 3
+    #print('F.shape:', F.shape)
+    N = normalized_sample.shape[0] 
+    # E2 = C / N
+    #print('E2.shape:', E2.shape)
+    # E3 = sample_zero_centered * F * (2 / N)
+    #print('E3.shape:', E3.shape)
+    O = (-2 / N) * F * np.sum(sample_zero_centered, axis=0)
+    #print('O.shape:', O.shape)
+    # E4 = O / N
+    #print('E4.shape:', E4.shape)
+
+    # calculating dx
+    Q1 = A / sqrt_variance_plus_epsilon
+    # Q2 = sample_zero_centered / N
+    # dx = Q1 - np.sum(Q1, axis=0) / N + (np.sum(Q2, axis=0) / N - Q2) * F
+    dx = Q1 - np.sum(Q1, axis=0) / N + (sample_zero_centered - np.sum(sample_zero_centered, axis=0) / N) * (F / N)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -330,7 +419,19 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    
+    # computing sample statistics
+    sample_mean = np.mean(x, axis=1, keepdims=True)
+    sample_variance = np.var(x, axis=1, keepdims=True)
+    # normalizing sample
+    sample_zero_centered = (x - sample_mean)
+    sqrt_variance_plus_epsilon = np.sqrt(sample_variance + eps)
+    normalized_sample = sample_zero_centered / sqrt_variance_plus_epsilon
+    # shifting and scaling the normalized sample
+    out = gamma * normalized_sample + beta
+    
+    # TODO: Determine what to include in the cache
+    cache = (normalized_sample, sample_zero_centered, gamma, sqrt_variance_plus_epsilon)
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
@@ -365,6 +466,34 @@ def layernorm_backward(dout, cache):
     # still apply!                                                            #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    
+    # getting values from cache
+    normalized_sample, sample_zero_centered, gamma, sqrt_variance_plus_epsilon = cache
+    sqrt_variance_plus_epsilon = np.squeeze(sqrt_variance_plus_epsilon)
+    d = normalized_sample.shape[1]
+
+    # calculating dgamma and dbeta
+    dgamma = np.sum(dout * normalized_sample, axis=0)
+    dbeta = np.sum(dout, axis=0)
+
+    # calculating the dx
+    A = dout * gamma
+    #print('A.shape:', A.shape)
+    V = -0.5 * np.sum(A * sample_zero_centered, axis=1) / sqrt_variance_plus_epsilon ** 3
+    #print('V.shape:', V.shape)
+    U1 = - np.sum(A, axis=1) / sqrt_variance_plus_epsilon
+    #print('U1.shape:', U1.shape)
+    U2 = (-2/d) * V * np.sum(sample_zero_centered, axis=1)
+    #print('U2.shape:', U2.shape)
+    U = U1 + U2
+    #print('U.shape:', U.shape)
+    E1 = (U / d).reshape(-1,1)
+    #print('E1.shape:', E1.shape)
+    E2 = (2/d) * V.reshape(-1, 1) * sample_zero_centered
+    #print('E2.shape:', E2.shape)
+    E3 = A / sqrt_variance_plus_epsilon.reshape(-1, 1)
+    #print('E3.shape:', E3.shape)
+    dx = E1 + E2 + E3
 
     pass
 
