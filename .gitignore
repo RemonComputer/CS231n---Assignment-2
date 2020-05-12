@@ -8,3 +8,6 @@ assignment3/*
 
 # my pending issues
 Pending issues.txt
+
+# model files
+*.pth
