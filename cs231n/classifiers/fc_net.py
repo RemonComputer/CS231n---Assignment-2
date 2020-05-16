@@ -173,7 +173,7 @@ class FullyConnectedNet(object):
           model.
         """
         self.normalization = normalization
-        self.use_dropout = dropout != 1
+        self.use_dropout = dropout > 1
         self.reg = reg
         self.num_layers = 1 + len(hidden_dims)
         self.dtype = dtype
